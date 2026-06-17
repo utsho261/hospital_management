@@ -8,6 +8,7 @@ from .serializers import (
     DepartmentSerializer, DoctorSerializer, PatientSerializer,
     AppointmentSerializer, MedicineSerializer, PrescriptionSerializer, BillSerializer
 )
+from .filters import AppointmentFilter, DoctorFilter
 from accounts.permissions import (
     IsAdminOrReceptionistOrReadOnly,
     IsAdminOrDoctorOrReadOnly,
@@ -30,7 +31,7 @@ class DoctorViewSet(viewsets.ModelViewSet):
     serializer_class = DoctorSerializer
     permission_classes = [IsAdminOrDoctorOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    filterset_fields = ['department', 'is_available']
+    filterset_class = DoctorFilter
     search_fields = ['user__first_name', 'user__last_name', 'specialization']
 
     @action(detail=True, methods=['patch'], url_path='toggle-availability')
@@ -40,7 +41,7 @@ class DoctorViewSet(viewsets.ModelViewSet):
         doctor.save()
         return Response({
             'message': f"Doctor availability set to {doctor.is_available}",
-            'is_available': doctor.is_available
+            'is_available': doctor.is_available,
         })
 
 
@@ -57,15 +58,9 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['doctor', 'patient', 'status']
+    filterset_class = AppointmentFilter
     ordering_fields = ['appointment_date', 'created_at']
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        date = self.request.query_params.get('date')
-        if date:
-            qs = qs.filter(appointment_date__date=date)
-        return qs
+    ordering = ['-appointment_date']
 
     @action(detail=True, methods=['patch'], url_path='cancel')
     def cancel(self, request, pk=None):
@@ -100,7 +95,9 @@ class MedicineViewSet(viewsets.ModelViewSet):
 
 
 class PrescriptionViewSet(viewsets.ModelViewSet):
-    queryset = Prescription.objects.select_related('appointment').prefetch_related('prescription_medicines__medicine').all()
+    queryset = Prescription.objects.select_related('appointment').prefetch_related(
+        'prescription_medicines__medicine'
+    ).all()
     serializer_class = PrescriptionSerializer
     permission_classes = [IsAdminOrDoctorForPrescription]
     filter_backends = [DjangoFilterBackend]
@@ -117,6 +114,8 @@ class BillViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['patch'], url_path='mark-paid')
     def mark_paid(self, request, pk=None):
         bill = self.get_object()
+        if bill.paid:
+            return Response({'error': 'Bill already paid.'}, status=status.HTTP_400_BAD_REQUEST)
         bill.paid = True
         bill.save()
         return Response({'message': 'Bill marked as paid.', 'paid': bill.paid})

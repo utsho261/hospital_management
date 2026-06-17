@@ -110,21 +110,31 @@ Authorization: Bearer <access_token>
 
 ## API Endpoints
 
-| Resource | Endpoint | Methods |
+### Authentication (`/api/auth/`)
+| Endpoint | Method | Description |
 |---|---|---|
-| Departments | `/api/departments/` | GET, POST, PUT, PATCH, DELETE |
-| Doctors | `/api/doctors/` | GET, POST, PUT, PATCH, DELETE |
-| Doctors — toggle availability | `/api/doctors/{id}/toggle-availability/` | PATCH |
-| Patients | `/api/patients/` | GET, POST, PUT, PATCH, DELETE |
-| Appointments | `/api/appointments/` | GET, POST, PUT, PATCH, DELETE |
-| Appointments — filter | `/api/appointments/?doctor=&patient=&status=&date=` | GET |
-| Appointments — approve/complete/cancel | `/api/appointments/{id}/approve/`, `/complete/`, `/cancel/` | PATCH |
-| Medicines | `/api/medicines/?search=` | GET, POST, PUT, PATCH, DELETE |
-| Prescriptions | `/api/prescriptions/` | GET, POST, PUT, PATCH, DELETE |
-| Bills | `/api/bills/` | GET, POST, PUT, PATCH, DELETE |
-| Bills — mark as paid | `/api/bills/{id}/mark-paid/` | PATCH |
+| `/register/` | POST | Register user with role (admin/doctor/patient/receptionist) |
+| `/login/` | POST | Login, returns JWT access + refresh tokens |
+| `/logout/` | POST | Blacklist refresh token |
+| `/token/refresh/` | POST | Refresh access token |
+| `/profile/` | GET / PUT | Get / update current user profile |
 
-Most list endpoints support pagination, search (`?search=`), and filtering (e.g. `?department=1`, `?is_available=true`, `?paid=false`).
+### Core Resources (`/api/`)
+| Resource | Endpoint | Filters / Actions |
+|---|---|---|
+| Departments | `/departments/` | `?search=` |
+| Doctors | `/doctors/` | `?department=&is_available=&search=` |
+| Doctor availability | `/doctors/{id}/toggle-availability/` (PATCH) | — |
+| Patients | `/patients/` | `?search=` |
+| Appointments | `/appointments/` | `?doctor=&patient=&status=&date=&date_from=&date_to=&ordering=` |
+| Appointment actions | `/appointments/{id}/{approve\|complete\|cancel}/` (PATCH) | — |
+| Medicines | `/medicines/` | `?search=` |
+| Prescriptions | `/prescriptions/` | `?appointment=` — supports nested medicines on create/update |
+| Bills | `/bills/` | `?patient=&paid=` |
+| Mark bill paid | `/bills/{id}/mark-paid/` (PATCH) | — |
+
+All endpoints (except register/login) require:
+`Authorization: Bearer <access_token>`
 
 ## Role-Based Permissions
 
@@ -149,7 +159,21 @@ curl -X POST http://127.0.0.1:8000/api/auth/register/ \
   -H "Content-Type: application/json" \
   -d '{"username":"admin1","email":"admin1@test.com","password":"pass1234","password2":"pass1234","first_name":"Admin","last_name":"One","role":"admin"}'
 ```
+## Sample Requests
 
+**Create Prescription with multiple medicines**
+```json
+POST /api/prescriptions/
+{
+  "appointment": 1,
+  "diagnosis": "Fever and headache",
+  "notes": "Rest for 3 days",
+  "prescription_medicines": [
+    {"medicine": 1, "dosage": "1+0+1", "duration": "5 days"},
+    {"medicine": 2, "dosage": "0+0+1", "duration": "3 days"}
+  ]
+}
+```
 ## License
 
 This project was developed for educational purposes as part of a Python/Django assignment.

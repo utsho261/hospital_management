@@ -1,5 +1,5 @@
 import django_filters
-from .models import Appointment, Doctor, Patient
+from .models import Appointment, Doctor
 
 
 class AppointmentFilter(django_filters.FilterSet):
